@@ -285,3 +285,22 @@ Error frame transmission
 Error frames are sent inline with regular frames. 'data' is an integer with the encoded error data (see socketcan/can/error.h for further information):
     < error data >
 
+Remote frames
+-------------
+
+Frame whose identifier is prefixed by '+' character is considered as remote frame.
+Remote frames are supported in RAW and BCM modes.
+
+Examples:
+
+Subscribe to remote frames with CAN ID 0x123
+
+    < subscribe 0 0 +123 >
+
+Send remote frame with CAN ID 0x123 and DLC 8
+
+    < send +123 8 >
+
+Received remote frame with CAN ID 0x123 and DLC 8
+
+    < frame +123 1111.111111 8 >

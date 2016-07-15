@@ -113,18 +113,24 @@ inline void state_bcm() {
 			}
 		} else {
 			if(msg.msg_head.can_id & CAN_EFF_FLAG) {
-				snprintf(rxmsg, RXLEN, "< frame %08X %ld.%06ld ",
-					 msg.msg_head.can_id & CAN_EFF_MASK, tv.tv_sec, tv.tv_usec);
+				snprintf(rxmsg, RXLEN,
+				         msg.msg_head.can_id & CAN_RTR_FLAG ? "< frame +%08X %ld.%06ld " : "< frame %08X %ld.%06ld ",
+				         msg.msg_head.can_id & CAN_EFF_MASK, tv.tv_sec, tv.tv_usec);
 			} else {
-				snprintf(rxmsg, RXLEN, "< frame %03X %ld.%06ld ",
-					 msg.msg_head.can_id & CAN_SFF_MASK, tv.tv_sec, tv.tv_usec);
+				snprintf(rxmsg, RXLEN,
+				         msg.msg_head.can_id & CAN_RTR_FLAG ? "< frame +%03X %ld.%06ld " : "< frame %03X %ld.%06ld ",
+				         msg.msg_head.can_id & CAN_SFF_MASK, tv.tv_sec, tv.tv_usec);
 			}
 
-			for ( i = 0; i < msg.frame.can_dlc; i++)
-				snprintf(rxmsg + strlen(rxmsg), RXLEN - strlen(rxmsg), "%02X ",
-					 msg.frame.data[i]);
+			if (msg.msg_head.can_id & CAN_RTR_FLAG) {
+				snprintf(rxmsg + strlen(rxmsg), RXLEN - strlen(rxmsg), "%u ", msg.frame.can_dlc);
+			} else {
+				for ( i = 0; i < msg.frame.can_dlc; i++)
+					snprintf(rxmsg + strlen(rxmsg), RXLEN - strlen(rxmsg), "%02X ",
+					         msg.frame.data[i]);
+			}
 
-			snprintf(rxmsg + strlen(rxmsg), RXLEN - strlen(rxmsg), " >");
+			snprintf(rxmsg + strlen(rxmsg), RXLEN - strlen(rxmsg), ">");
 			send(client_socket, rxmsg, strlen(rxmsg), 0);
 		}
 	}
@@ -173,15 +179,18 @@ inline void state_bcm() {
 				       &msg.frame.data[6],
 				       &msg.frame.data[7]);
 
+			if (sscanf(buf, "< %*s %n", &i), buf[i] == '+')
+				msg.msg_head.can_id |= CAN_RTR_FLAG;
+
 			if ( (items < 2) ||
 			     (msg.frame.can_dlc > 8) ||
-			     (items != 2 + msg.frame.can_dlc)) {
+			     (!(msg.msg_head.can_id & CAN_RTR_FLAG) && items != 2 + msg.frame.can_dlc)) {
 				PRINT_ERROR("Syntax error in send command\n")
 					return;
 			}
 
 			/* < send XXXXXXXX ... > check for extended identifier */
-			if(element_length(buf, 2) == 8)
+			if(element_length(buf, 2) >= 8)
 				msg.msg_head.can_id |= CAN_EFF_FLAG;
 
 			msg.msg_head.opcode = TX_SEND;
@@ -210,15 +219,18 @@ inline void state_bcm() {
 				       &msg.frame.data[6],
 				       &msg.frame.data[7]);
 
+			if (sscanf(buf, "< %*s %*u %*u %n", &i), buf[i] == '+')
+				msg.msg_head.can_id |= CAN_RTR_FLAG;
+
 			if( (items < 4) ||
 			    (msg.frame.can_dlc > 8) ||
-			    (items != 4 + msg.frame.can_dlc) ) {
+			    (!(msg.msg_head.can_id & CAN_RTR_FLAG) && items != 4 + msg.frame.can_dlc)) {
 				PRINT_ERROR("Syntax error in add command.\n");
 				return;
 			}
 
 			/* < add sec usec XXXXXXXX ... > check for extended identifier */
-			if(element_length(buf, 4) == 8)
+			if(element_length(buf, 4) >= 8)
 				msg.msg_head.can_id |= CAN_EFF_FLAG;
 
 			msg.msg_head.opcode = TX_SETUP;
@@ -246,15 +258,18 @@ inline void state_bcm() {
 				       &msg.frame.data[6],
 				       &msg.frame.data[7]);
 
+			if (sscanf(buf, "< %*s %n", &i), buf[i] == '+')
+				msg.msg_head.can_id |= CAN_RTR_FLAG;
+
 			if ( (items < 2) ||
 			     (msg.frame.can_dlc > 8) ||
-			     (items != 2 + msg.frame.can_dlc)) {
+			     (!(msg.msg_head.can_id & CAN_RTR_FLAG) && items != 2 + msg.frame.can_dlc)) {
 				PRINT_ERROR("Syntax error in update send job command\n")
 					return;
 			}
 
 			/* < update XXXXXXXX ... > check for extended identifier */
-			if(element_length(buf, 2) == 8)
+			if(element_length(buf, 2) >= 8)
 				msg.msg_head.can_id |= CAN_EFF_FLAG;
 
 			msg.msg_head.opcode = TX_SETUP;
@@ -271,13 +286,16 @@ inline void state_bcm() {
 			items = sscanf(buf, "< %*s %x >",
 				       &msg.msg_head.can_id);
 
+			if (sscanf(buf, "< %*s %n", &i), buf[i] == '+')
+				msg.msg_head.can_id |= CAN_RTR_FLAG;
+
 			if (items != 1)  {
 				PRINT_ERROR("Syntax error in delete job command\n")
 					return;
 			}
 
 			/* < delete XXXXXXXX ... > check for extended identifier */
-			if(element_length(buf, 2) == 8)
+			if(element_length(buf, 2) >= 8)
 				msg.msg_head.can_id |= CAN_EFF_FLAG;
 
 			msg.msg_head.opcode = TX_DELETE;
@@ -306,15 +324,18 @@ inline void state_bcm() {
 				       &msg.frame.data[6],
 				       &msg.frame.data[7]);
 
+			if (sscanf(buf, "< %*s %*u %*u %n", &i), buf[i] == '+')
+				msg.msg_head.can_id |= CAN_RTR_FLAG;
+
 			if( (items < 4) ||
 			    (msg.frame.can_dlc > 8) ||
-			    (items != 4 + msg.frame.can_dlc) ) {
+			    (!(msg.msg_head.can_id & CAN_RTR_FLAG) && items != 4 + msg.frame.can_dlc)) {
 				PRINT_ERROR("syntax error in filter command.\n")
 					return;
 			}
 
 			/* < filter sec usec XXXXXXXX ... > check for extended identifier */
-			if(element_length(buf, 4) == 8)
+			if(element_length(buf, 4) >= 8)
 				msg.msg_head.can_id |= CAN_EFF_FLAG;
 
 			msg.msg_head.opcode = RX_SETUP;
@@ -401,13 +422,16 @@ inline void state_bcm() {
 				       &msg.msg_head.ival2.tv_usec,
 				       &msg.msg_head.can_id);
 
+			if (sscanf(buf, "< %*s %*u %*u %n", &i), buf[i] == '+')
+				msg.msg_head.can_id |= CAN_RTR_FLAG;
+
 			if (items != 3) {
 				PRINT_ERROR("syntax error in subscribe command\n")
 					return;
 			}
 
 			/* < subscribe sec usec XXXXXXXX ... > check for extended identifier */
-			if(element_length(buf, 4) == 8)
+			if(element_length(buf, 4) >= 8)
 				msg.msg_head.can_id |= CAN_EFF_FLAG;
 
 			msg.msg_head.opcode = RX_SETUP;
@@ -424,13 +448,16 @@ inline void state_bcm() {
 			items = sscanf(buf, "< %*s %x >",
 				       &msg.msg_head.can_id);
 
+			if (sscanf(buf, "< %*s %n", &i), buf[i] == '+')
+				msg.msg_head.can_id |= CAN_RTR_FLAG;
+
 			if (items != 1) {
 				PRINT_ERROR("syntax error in unsubscribe command\n")
 					return;
 			}
 
 			/* < unsubscribe XXXXXXXX ... > check for extended identifier */
-			if(element_length(buf, 2) == 8)
+			if(element_length(buf, 2) >= 8)
 				msg.msg_head.can_id |= CAN_EFF_FLAG;
 
 			msg.msg_head.opcode = RX_DELETE;
