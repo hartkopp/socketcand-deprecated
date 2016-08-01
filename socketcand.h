@@ -43,6 +43,7 @@ extern int daemon_flag;
 extern int state;
 extern int previous_state;
 extern char bus_name[];
+extern char* type;
 extern char* description;
 extern char* afuxname;
 extern pthread_t statistics_thread;

@@ -41,7 +41,7 @@ void *beacon_loop(void *ptr) {
 		/* Build the beacon */
 		gethostname((char *) &hostname, (size_t)  32);
 		snprintf(buffer, BEACON_LENGTH, "<CANBeacon name=\"%s\" type=\"%s\" description=\"%s\">\n<URL>can://%s:%d</URL>",
-			 hostname, BEACON_TYPE, description, inet_ntoa( saddr.sin_addr ), port);
+			 hostname, type, description, inet_ntoa( saddr.sin_addr ), port);
 
 		for(i=0;i<interface_count;i++) {
 			/* Find \0 in beacon buffer */

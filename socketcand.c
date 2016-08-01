@@ -92,6 +92,7 @@ int previous_state = -1;
 char bus_name[MAX_BUSNAME];
 char cmd_buffer[MAXLEN];
 int cmd_index=0;
+char* type;
 char* description;
 char* afuxname;
 int more_elements = 0;
@@ -226,6 +227,8 @@ int main(int argc, char **argv)
 
 	/* set default config settings */
 	port = PORT;
+	type = malloc(sizeof(BEACON_TYPE));
+	strcpy(type, BEACON_TYPE);
 	description = malloc(sizeof(BEACON_DESCRIPTION));
 	strcpy(description, BEACON_DESCRIPTION);
 	interface_string = malloc(strlen(DEFAULT_INTERFACE)+ 1);
@@ -242,6 +245,7 @@ int main(int argc, char **argv)
 			config_init(&config);
 			if(CONFIG_TRUE == config_read_file(&config, optarg)) {
 				config_lookup_int(&config, "port", (int*) &port);
+				config_lookup_string(&config, "type", (const char**) &type);
 				config_lookup_string(&config, "description", (const char**) &description);
 				config_lookup_string(&config, "afuxname", (const char**) &afuxname);
 				config_lookup_string(&config, "busses", (const char**) &busses_string);
