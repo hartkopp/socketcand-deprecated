@@ -118,18 +118,25 @@ void state_raw() {
 				canid_t class = frame.can_id  & CAN_EFF_MASK;
 				ret = sprintf(buf, "< error %03X %ld.%06ld >", class, tv.tv_sec, tv.tv_usec);
 				send(client_socket, buf, strlen(buf), 0);
-			} else if(frame.can_id & CAN_RTR_FLAG) {
-				/* TODO implement */
 			} else {
 				if(frame.can_id & CAN_EFF_FLAG) {
-					ret = sprintf(buf, "< frame %08X %ld.%06ld ", frame.can_id & CAN_EFF_MASK, tv.tv_sec, tv.tv_usec);
+					ret = sprintf(buf,
+					              frame.can_id & CAN_RTR_FLAG ? "< frame +%08X %ld.%06ld " : "< frame %08X %ld.%06ld ",
+					              frame.can_id & CAN_EFF_MASK, tv.tv_sec, tv.tv_usec);
 				} else {
-					ret = sprintf(buf, "< frame %03X %ld.%06ld ", frame.can_id & CAN_SFF_MASK, tv.tv_sec, tv.tv_usec);
+					ret = sprintf(buf,
+					              frame.can_id & CAN_RTR_FLAG ? "< frame +%03X %ld.%06ld " : "< frame %03X %ld.%06ld ",
+					              frame.can_id & CAN_SFF_MASK, tv.tv_sec, tv.tv_usec);
 				}
-				for(i=0;i<frame.can_dlc;i++) {
-					ret += sprintf(buf+ret, "%02X", frame.data[i]);
+
+				if (frame.can_id & CAN_RTR_FLAG) {
+					ret += sprintf(buf + ret, "%u ", frame.can_dlc);
+				} else {
+					for(i = 0;i < frame.can_dlc;i++)
+						ret += sprintf(buf + ret, "%02X ", frame.data[i]);
 				}
-				sprintf(buf+ret, " >");
+
+				sprintf(buf + ret, ">");
 				send(client_socket, buf, strlen(buf), 0);
 			}
 		}
@@ -168,15 +175,18 @@ void state_raw() {
 					       &frame.data[6],
 					       &frame.data[7]);
 
+				if (sscanf(buf, "< %*s %n", &i), buf[i] == '+')
+					frame.can_id |= CAN_RTR_FLAG;
+
 				if ( (items < 2) ||
 				     (frame.can_dlc > 8) ||
-				     (items != 2 + frame.can_dlc)) {
+				     (!(frame.can_id & CAN_RTR_FLAG) && items != 2 + frame.can_dlc)) {
 					PRINT_ERROR("Syntax error in send command\n")
 						return;
 				}
 
 				/* < send XXXXXXXX ... > check for extended identifier */
-				if(element_length(buf, 2) == 8)
+				if(element_length(buf, 2) >= 8)
 					frame.can_id |= CAN_EFF_FLAG;
 
 				ret = send(raw_socket, &frame, sizeof(struct can_frame), 0);
